@@ -1,0 +1,102 @@
+import urllib
+from bs4 import BeautifulSoup
+import csv
+#Address data picked from astra_data
+hi = csv.reader(open("astra_data.csv","r"))
+header = next(hi,None)
+#Fields to be extracted
+title = ["Id","Name","Street_Address","Locality_Address","Region_Address","Pincode","Phone","Gender"]
+xyz = open("amar.csv","w")
+x = csv.writer(xyz)
+x.writerows([title])
+
+def single(data):
+    l = data.find('div','address')
+    str_add = locality_add = Reg_add = pincode = phone = gender = None
+    name = data.find('h1','name').text.strip()
+    street = l.find('span',{'itemprop':'streetAddress'})
+    if street : str_add = street.text
+    locality = l.find('span',{'itemprop':'addressLocality'})
+    if locality : locality_add = locality.text
+    Region = l.find('span',{'itemprop':'addressRegion'})
+    if Region : Reg_add = Region.text
+    pin = l.find('span',{'itemprop':'postalCode'})
+    if pin : pincode = pin.text
+    ph = data.find('div','phone')
+    if ph: phone = ph.text.strip()
+    gen = l.find('div','gender-icon')
+    if gen :
+        gender1 = gen.find("img")["src"]
+        gender = gender1.split("/")[-1].split(".")[0]
+    details = [id,name,str_add,locality_add,Reg_add,pincode,phone,gender]
+    x.writerows([details])
+
+def multiple(data):
+    abc = data.find('table','wp_multiresultstable').findAll('tr',recursive=False)
+    for j in abc:
+        Id = id
+        name  = j.find('a','listing-header').text.strip()
+        str_add = locality_add = Reg_add = pincode = phone = gender = None
+        ph = j.find('span','listing-phone')
+        if ph: phone = j.find('span','listing-phone').text.strip()
+        street = j.find('span',{'itemprop':'streetAddress'})
+        if street: str_add = j.find('span',{'itemprop':'streetAddress'}).text
+        locality = j.find('span',{'itemprop':'addressLocality'})
+        if locality : locality_add = j.find('span',{'itemprop':'addressLocality'}).text
+        Region = j.find('span',{'itemprop':'addressRegion'})
+        if Region: Reg_add = j.find('span',{'itemprop':'addressRegion'}).text
+        pin = j.find('span',{'itemprop':'postalCode'})
+        if pin : pincode = j.find('span',{'itemprop':'postalCode'}).text
+        gender_icon = j.find('img','gender-icon')
+        if gender_icon:
+            gender = gender_icon["src"].split("/")[-1].split(".")[0]
+        details = [Id,name,str_add,locality_add,Reg_add,pincode,phone,gender]
+        x.writerows([details])
+    #Check for the active navigation link on the page
+    if data.find('td','page_navigation').find('span','F3').text == "Next":
+        None
+    #If active link found use Receursive funtion to extract all the data
+    elif data.find('td','page_navigation').find('a'):
+        abc = data.find('td','page_navigation').findAll('a')[-1]["href"]
+        base_url1 = "http://wp.superpages.com"
+        url = base_url1 + abc
+        print url
+        a = urllib.urlopen(url)
+        fun(a)
+
+#Main body function
+def fun(argument):
+    data = BeautifulSoup(argument,'lxml')#"html.parser" in case of using normal environment of python 2.7
+    #If No Data(Person) found on the page, return none
+    if (data.find('div','NoResultBar')):
+        None
+    #If only one data(Person) found, call function named single defined as above
+    elif data.find('table','wp_singleresulttable'):
+        single(data)
+    #If multiple data found,call function named multiple defined as above
+    elif data.find('table','wp_multiresultstable'):
+        multiple(data)
+    #If multiple locations available for the same street address in that state, extract data from all those locations
+    elif data.find('td'):
+        if data.find('td').text == "We found multiple cities that match your search location. Please choose a city below to continue.":
+            bnm = data.find('div','intelius_content').findAll('a')
+            base_url1 = "http://wp.superpages.com"
+            for m in range(len(bnm)):
+                url = base_url1 + bnm[m]["href"]
+                print url
+                a = urllib.urlopen(url)
+                fun(a)
+
+count = 0
+for i in hi:
+    #Base url for the webpage to be used for web-crawling
+    base_url = 'http://wp.superpages.com/results.php?ReportType=34&'
+    str_1 =  base_url + urllib.urlencode({'qa':i[3],'qc':i[5],'qs':i[6]})
+    id = i[0]
+    a = urllib.urlopen(str_1)
+    count= count + 1
+    print count
+    print str_1
+    fun(a)
+
+xyz.close()
